@@ -1,3 +1,19 @@
+`timescale 1ns / 1ps
+//****************************************************************
+// Copyright 2022 Tianjin University 305 Lab. All Rights Reserved.
+//
+// File:
+// abs_phase_3steps.sv
+// 
+// Description:
+// Calculate absolute phase based on 3-step heterodyne algorithm.
+// 
+// Revision history:
+// Version  Date        Author      Changes      
+// 1.0      2022.11.14  ff          Initial version.
+// 1.1      2022.11.28  ff          Fix bugs.
+//****************************************************************
+
 module abs_phase_3steps #(
     parameter DATA_WIDTH = 16,
     parameter RATIO_3TO2 = 8,
@@ -6,9 +22,9 @@ module abs_phase_3steps #(
     input                           clk,
     input                           rst_n,
     input                           vld_i,
-    input signed [15:0]             phase1_i,
-    input signed [15:0]             phase2_i,
-    input signed [15:0]             phase3_i,
+    input signed [DATA_WIDTH-1:0]   phase1_i,
+    input signed [DATA_WIDTH-1:0]   phase2_i,
+    input signed [DATA_WIDTH-1:0]   phase3_i,
     input                           tlast_i,
     output                          vld_o,
     output signed [DATA_WIDTH-1:0]  abs_phase_o,

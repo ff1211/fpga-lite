@@ -1,4 +1,17 @@
 `timescale 1ns/1ps
+//****************************************************************
+// Copyright 2022 Tianjin University 305 Lab. All Rights Reserved.
+//
+// File:
+// tb.sv
+// 
+// Description:
+// Testbenth of cal_abs_phase module.
+// 
+// Revision history:
+// Version  Date        Author      Changes      
+// 1.0      2022.11.14  ff          Initial version
+//****************************************************************
 
 module tb (
 );
