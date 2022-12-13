@@ -14,7 +14,7 @@
 //****************************************************************
 
 module cal_abs_phase #(
-    parameter PHASE_NUM = 8,
+    parameter BEAT_SIZE = 8,
     parameter DATA_WIDTH = 16,
     parameter RATIO_3TO2 = 8,
     parameter RATIO_2TO1 = 8,
@@ -23,12 +23,12 @@ module cal_abs_phase #(
     input aclk,
     input aresetn,
 
-    input  logic [PHASE_NUM*DATA_WIDTH-1:0]     s_axis_tdata,
+    input  logic [BEAT_SIZE*DATA_WIDTH-1:0]     s_axis_tdata,
     input  logic                                s_axis_tvalid,
     output logic                                s_axis_tready,
     input  logic                                s_axis_tlast,
     
-    output logic [PHASE_NUM*DATA_WIDTH-1:0]     m_axis_tdata,
+    output logic [BEAT_SIZE*DATA_WIDTH-1:0]     m_axis_tdata,
     output logic                                m_axis_tvalid,
     input  logic                                m_axis_tready,
     output logic                                m_axis_tlast
@@ -38,23 +38,23 @@ localparam HETERODYNE_NUM = 3;
 
 logic [HETERODYNE_NUM-1:0]                          phase_buf_wr_en;
 logic [HETERODYNE_NUM-1:0]                          phase_buf_rd_en;
-logic [PHASE_NUM*DATA_WIDTH:0]                      phase_buf_din;
+logic [BEAT_SIZE*DATA_WIDTH:0]                      phase_buf_din;
 logic [HETERODYNE_NUM-1:0]                          phase_buf_empty;
 logic [HETERODYNE_NUM-1:0]                          phase_buf_pfull;
-logic [HETERODYNE_NUM-1:0][PHASE_NUM*DATA_WIDTH:0]  phase_buf_dout;
+logic [HETERODYNE_NUM-1:0][BEAT_SIZE*DATA_WIDTH:0]  phase_buf_dout;
 
 logic                                       cal_vld_i;
-logic [PHASE_NUM-1:0]                       cal_vld;
-logic [PHASE_NUM-1:0][DATA_WIDTH-1:0]       abs_phase;
-logic [PHASE_NUM-1:0]                       tlast;
+logic [BEAT_SIZE-1:0]                       cal_vld;
+logic [BEAT_SIZE-1:0][DATA_WIDTH-1:0]       abs_phase;
+logic [BEAT_SIZE-1:0]                       tlast;
 logic [HETERODYNE_NUM-1:0]                  buf_switch;
 
 logic                                       abs_phase_buf_wr_en;
 logic                                       abs_phase_buf_rd_en;
-logic [PHASE_NUM*DATA_WIDTH:0]              abs_phase_buf_din;
+logic [BEAT_SIZE*DATA_WIDTH:0]              abs_phase_buf_din;
 logic                                       abs_phase_buf_pfull;
 logic                                       abs_phase_buf_empty;
-logic [PHASE_NUM*DATA_WIDTH:0]              abs_phase_buf_dout;
+logic [BEAT_SIZE*DATA_WIDTH:0]              abs_phase_buf_dout;
 
 genvar i;
 generate;
@@ -62,7 +62,7 @@ for (i = 0; i < HETERODYNE_NUM; ++i) begin
     sync_fifo #(
         .FIFO_DEPTH         (  BUFFER_DEPTH     ),
         .PROG_FULL_THRESH   (  BUFFER_DEPTH-10  ),
-        .DATA_WIDTH         (  PHASE_NUM*DATA_WIDTH+1 ),
+        .DATA_WIDTH         (  BEAT_SIZE*DATA_WIDTH+1 ),
         .READ_MODE          (  "fwft"           ),
         .READ_LATENCY       (   0               )
     ) phase_fifo (
@@ -108,7 +108,7 @@ assign cal_vld_i = ~phase_buf_empty[0] & ~phase_buf_empty[1] & ~phase_buf_empty[
 
 genvar j;
 generate;
-for (j = 0; j < PHASE_NUM; ++j) begin
+for (j = 0; j < BEAT_SIZE; ++j) begin
 // Phase and modulate rate calculation.
     logic [DATA_WIDTH-1:0] abs_phase_o;
     abs_phase_3steps #(
@@ -122,7 +122,7 @@ for (j = 0; j < PHASE_NUM; ++j) begin
         .phase1_i       (   phase_buf_dout[0][j*DATA_WIDTH+:DATA_WIDTH]),
         .phase2_i       (   phase_buf_dout[1][j*DATA_WIDTH+:DATA_WIDTH]),
         .phase3_i       (   phase_buf_dout[2][j*DATA_WIDTH+:DATA_WIDTH]),
-        .tlast_i        (   phase_buf_dout[0][PHASE_NUM*DATA_WIDTH]),
+        .tlast_i        (   phase_buf_dout[0][BEAT_SIZE*DATA_WIDTH]),
         .vld_o          (   cal_vld[j]  ),
         .abs_phase_o    (   abs_phase_o ),
         .tlast_o        (   tlast[j]    )
@@ -136,7 +136,7 @@ endgenerate
 sync_fifo #(
     .FIFO_DEPTH         (  BUFFER_DEPTH    ),
     .PROG_FULL_THRESH   (  BUFFER_DEPTH-10 ),
-    .DATA_WIDTH         (  PHASE_NUM*DATA_WIDTH+1),
+    .DATA_WIDTH         (  BEAT_SIZE*DATA_WIDTH+1),
     .READ_MODE          (  "fwft"           ),
     .READ_LATENCY       (   0               )
 ) abs_phase_fifo (
@@ -153,8 +153,8 @@ sync_fifo #(
 assign abs_phase_buf_wr_en = cal_vld[0];
 assign abs_phase_buf_rd_en = m_axis_tready & m_axis_tvalid;
 assign abs_phase_buf_din = {tlast[0], abs_phase};
-assign m_axis_tdata = abs_phase_buf_dout[PHASE_NUM*DATA_WIDTH-1:0];
+assign m_axis_tdata = abs_phase_buf_dout[BEAT_SIZE*DATA_WIDTH-1:0];
 assign m_axis_tvalid = ~abs_phase_buf_empty;
-assign m_axis_tlast = abs_phase_buf_dout[PHASE_NUM*DATA_WIDTH];
+assign m_axis_tlast = abs_phase_buf_dout[BEAT_SIZE*DATA_WIDTH];
 
 endmodule

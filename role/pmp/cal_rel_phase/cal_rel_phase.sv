@@ -1,23 +1,17 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
+//****************************************************************
+// Copyright 2022 Tianjin University 305 Lab. All Rights Reserved.
+//
+// File:
+// cal_rel_phase.sv
 // 
-// Create Date: 10/14/2022 01:39:10 PM
-// Design Name: 
-// Module Name: relPhaseTop
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
+// Description:
+// Calculate relative phase.
 // 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
+// Revision history:
+// Version  Date        Author      Changes      
+// 1.0      2022.12.04  ff          Initial version
+//****************************************************************
 
 module cal_rel_phase #(
     parameter BEAT_SIZE = 8,
@@ -40,7 +34,8 @@ module cal_rel_phase #(
 
 localparam SHIF_STEPS = 4;
 localparam BEAT_WIDTH = BEAT_SIZE*DATA_WIDTH;
-localparam PIXEL_PART_WIDTH = BEAT_WIDTH/(DATA_WIDTH/8);
+localparam PIXEL_PART_WIDTH = BEAT_SIZE*8;
+localparam PART_NUM = DATA_WIDTH/8;
 
 logic [SHIF_STEPS-1:0]                  pixel_buf_wr_en;
 logic [SHIF_STEPS-1:0]                  pixel_buf_rd_en;
@@ -50,12 +45,16 @@ logic [SHIF_STEPS-1:0]                  pixel_buf_pfull;
 logic [SHIF_STEPS-1:0][BEAT_WIDTH:0]    pixel_buf_dout;
 logic                                   init_win;
 
+logic [BEAT_SIZE-1:0][7:0]              pixel1;
+logic [BEAT_SIZE-1:0][7:0]              pixel2;
+logic [BEAT_SIZE-1:0][7:0]              pixel3;
+logic [BEAT_SIZE-1:0][7:0]              pixel4;
+
 logic [DATA_WIDTH-1:0]                  buf_rd_cnt;
 logic                                   cal_vld_i;
 logic [BEAT_SIZE-1:0]                   cal_vld;
 logic [BEAT_SIZE-1:0][DATA_WIDTH-1:0]   phase;
 logic [BEAT_SIZE-1:0]                   tlast;
-logic [BEAT_SIZE-1:0][DATA_WIDTH-1:0]   mod_rate;
 logic [SHIF_STEPS-1:0]                  buf_switch;
 logic                                   cal_tlast_i;
 
@@ -133,28 +132,42 @@ assign cal_tlast_i = pixel_buf_dout[0][BEAT_WIDTH] & init_win;
 
 genvar j;
 generate;
-for (j = 0; j < BEAT_SIZE; ++j) begin
+for (j = 0; j < BEAT_SIZE; j++) begin
 // Phase and modulate rate calculation.
     logic [DATA_WIDTH-1:0] phase_o;
     rel_phase_4steps #(
-        .DATA_WIDTH (  DATA_WIDTH )
+        .DATA_WIDTH (  DATA_WIDTH       )
     ) rel_phase_4steps_inst (
         .clk        (   aclk            ),
         .rst_n      (   aresetn         ),
         .vld_i      (   cal_vld_i       ),
-        .pixel1_i   (   pixel_buf_dout[0][buf_rd_cnt*PIXEL_PART_WIDTH+j*8+:8]),
-        .pixel2_i   (   pixel_buf_dout[1][buf_rd_cnt*PIXEL_PART_WIDTH+j*8+:8]),
-        .pixel3_i   (   pixel_buf_dout[2][buf_rd_cnt*PIXEL_PART_WIDTH+j*8+:8]),
-        .pixel4_i   (   pixel_buf_dout[3][buf_rd_cnt*PIXEL_PART_WIDTH+j*8+:8]),
+        .pixel1_i   (   pixel1[j]       ),
+        .pixel2_i   (   pixel2[j]       ),
+        .pixel3_i   (   pixel3[j]       ),
+        .pixel4_i   (   pixel4[j]       ),
         .tlast_i    (   cal_tlast_i     ),
         .vld_o      (   cal_vld[j]      ),
         .tlast_o    (   tlast[j]        ),
-        .phase_o    (   phase_o         ),
-        .mod_rate_o (   mod_rate[j]     )
+        .phase_o    (   phase_o         )
     );
     assign phase[j] = phase_o;
 end
 endgenerate
+// Select input pixels.
+always @(*) begin
+    pixel1 = pixel_buf_dout[0][0+:PIXEL_PART_WIDTH];
+    pixel2 = pixel_buf_dout[1][0+:PIXEL_PART_WIDTH];
+    pixel3 = pixel_buf_dout[2][0+:PIXEL_PART_WIDTH];
+    pixel4 = pixel_buf_dout[3][0+:PIXEL_PART_WIDTH];
+    for (int i = 0; i < PART_NUM; i++) begin
+        if(buf_rd_cnt == i) begin
+            pixel1 = pixel_buf_dout[0][i*PIXEL_PART_WIDTH+:PIXEL_PART_WIDTH];
+            pixel2 = pixel_buf_dout[1][i*PIXEL_PART_WIDTH+:PIXEL_PART_WIDTH];
+            pixel3 = pixel_buf_dout[2][i*PIXEL_PART_WIDTH+:PIXEL_PART_WIDTH];
+            pixel4 = pixel_buf_dout[3][i*PIXEL_PART_WIDTH+:PIXEL_PART_WIDTH];
+        end
+    end
+end
 
 // Phase buffer
 sync_fifo #(

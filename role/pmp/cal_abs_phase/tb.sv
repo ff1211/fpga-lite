@@ -64,7 +64,6 @@ cal_abs_phase #(
     .m_axis_tlast   (   m_axis_tlast    )
 );
 assign m_axis_tready = 1'b1;
-
 parameter PACKAGE_LEN = 256;
 int i = 0;
 initial begin
@@ -75,7 +74,7 @@ initial begin
         @(posedge clk) begin
             if(i < PACKAGE_LEN) begin
                 s_axis_tvalid <= 1;
-                s_axis_tdata <= {8{16'b01010011_10100001}};
+                s_axis_tdata <= {8{16'b00011010_10011110}};
                 s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
             end else begin
                 s_axis_tvalid <= 1'b0;
@@ -88,7 +87,7 @@ initial begin
         @(posedge clk) begin
             if(i < PACKAGE_LEN) begin
                 s_axis_tvalid <= 1;
-                s_axis_tdata <= {8{16'b00100010_01001001}};
+                s_axis_tdata <= {8{16'b00001010_11101010}};
                 s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
             end else begin
                 s_axis_tvalid <= 1'b0;
@@ -101,7 +100,7 @@ initial begin
         @(posedge clk) begin
             if(i < PACKAGE_LEN) begin
                 s_axis_tvalid <= 1;
-                s_axis_tdata <= {8{16'b01000011_00101010}};
+                s_axis_tdata <= {8{16'b00010101_01100001}};
                 s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
             end else begin
                 s_axis_tvalid <= 1'b0;

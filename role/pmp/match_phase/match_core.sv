@@ -28,7 +28,7 @@ module match_core #(
     input  logic                                    vld_i,
 
     output logic [$clog2(ROW_SIZE/WIN_SIZE)-1:0]    cache_addr,
-    input  logic [WIN_SIZE*DATA_WIDTH-1:0]          cache_data,
+    input  logic [WIN_SIZE-1:0][DATA_WIDTH-1:0]     cache_data,
 
     output logic [DATA_WIDTH-1:0]                   disparity,
     output logic                                    vld_o
@@ -48,6 +48,8 @@ logic signed [DATA_WIDTH-1:0]           abs_phase1_r;
 logic signed [DATA_WIDTH-1:0]           abs_phase1_pos_r;
 logic                                   not_found;
 logic signed [DATA_WIDTH-1:0]           cache_data_signed   [WIN_SIZE-1:0];
+logic signed [DATA_WIDTH-1:0]           boundary_error;
+logic        [DATA_WIDTH-1:0]           analyze_result_l;
 
 logic [3:0]                             cache_rd_cnt;
 
@@ -100,12 +102,24 @@ always @(*) begin
             n_state = S_ANALYZE;
 
         S_ANALYZE:
-            if(analyze_result == A_MAY_INSIDE)
-                n_state = S_MATCH;
-            else if(analyze_result == A_NOT_FOUND)
-                n_state = S_CAL_DISPARITY;
-            else
-                n_state = S_CHANGE_WIN;
+            case (analyze_result)
+                A_MAY_SMALLER:
+                    if(analyze_result_l == A_MAY_LARGER)
+                        n_state = S_CAL_DISPARITY;
+                    else
+                        n_state = S_CHANGE_WIN;
+                A_MAY_INSIDE:
+                    n_state = S_MATCH;
+                A_MAY_LARGER:
+                    if(analyze_result_l == A_MAY_SMALLER)
+                        n_state = S_CAL_DISPARITY;
+                    else
+                        n_state = S_CHANGE_WIN;
+                A_NOT_FOUND:
+                    n_state = S_CAL_DISPARITY;
+                default:
+                    n_state = S_CAL_DISPARITY;
+            endcase
         S_MATCH:
             if(tree_vld_o)
                 n_state = S_CAL_DISPARITY;
@@ -149,11 +163,30 @@ always @(*) begin
         default: analyze_result = A_NOT_FOUND;
     endcase
 end
+// Save boundary phase.
+always @(posedge clk) begin
+    if(c_state == S_ANALYZE) begin
+        case (analyze_result)
+            A_MAY_SMALLER: boundary_error <= tree_error_l;
+            A_MAY_INSIDE: boundary_error <= boundary_error;
+            A_MAY_LARGER: boundary_error <= tree_error_m;
+            A_NOT_FOUND: boundary_error <= boundary_error;
+            default: boundary_error <= boundary_error;
+        endcase
+    end
+end
+// Save analysis result.
+always @(posedge clk) begin
+    if(~rst_n)
+        analyze_result_l <= A_NOT_FOUND;
+    else if(c_state == S_ANALYZE)
+        analyze_result_l <= analyze_result;
+end
 // Change cache address.
 always @(posedge clk) begin
     if(~rst_n)
         cache_addr <= 0;
-    else if(c_state == S_ANALYZE) begin
+    else if(c_state == S_CHANGE_WIN) begin
         case (analyze_result)
             A_MAY_SMALLER: cache_addr <= cache_addr - 1;
             A_MAY_INSIDE: cache_addr <= cache_addr;
@@ -176,8 +209,8 @@ end
 // Wait cache read result.
 always @(posedge clk) begin
     if(~rst_n)
-        cache_rd_cnt <= READ_LATENCY;
-    else if((c_state == S_ANALYZE) & (n_state == S_CHANGE_WIN))
+        cache_rd_cnt <= 0;
+    else if(n_state != S_CHANGE_WIN)
         cache_rd_cnt <= 0;
     else if(c_state == S_CHANGE_WIN)
         cache_rd_cnt <= cache_rd_cnt + 1;
@@ -199,6 +232,9 @@ always @(posedge clk) begin
     if(not_found)
         disparity <= 0;
     else
+        if(analyze_result == A_MAY_SMALLER)
+            disparity <= boundary_error + tree_error_l
+        else if(analyze_result == A_MAY_LARGER)
         if(tree_error_o_r < MATCH_TH)
             disparity <= abs_phase1_pos_r - tree_pos_o_r;
         else
