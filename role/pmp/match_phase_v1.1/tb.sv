@@ -38,7 +38,7 @@ logic                                   m_axis_tlast;
 
 assign m_axis_tready = 1;
 
-phase_match #(
+match_phase #(
     .ROW_SIZE       (   ROW_SIZE        ),
     .WIN_SIZE       (   WIN_SIZE        ),
     .BEAT_SIZE      (   BEAT_SIZE       ),
@@ -70,7 +70,7 @@ initial begin
         @(posedge clk) begin
             if(i < PACKAGE_LEN) begin
                 for (int j = 0; j < BEAT_SIZE; j++) begin
-                    s_axis_tdata[j] = 16'b00000000_00010000 * (i*BEAT_SIZE+j+1);
+                    s_axis_tdata[j] <= 16'b00000000_00000100 * (i*BEAT_SIZE+j);
                 end
                 s_axis_tvalid <= 1;
                 s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
@@ -85,7 +85,7 @@ initial begin
         @(posedge clk) begin
             if(i < PACKAGE_LEN) begin
                 for (int j = 0; j < BEAT_SIZE; j++) begin
-                    s_axis_tdata[j] = 16'b00000000_00010000 * (i*BEAT_SIZE+j);
+                    s_axis_tdata[j] <= 16'b00000000_00000100 * (i*BEAT_SIZE+j) + 16'b00000000_00100000;
                 end
                 s_axis_tvalid <= 1;
                 s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
@@ -111,29 +111,4 @@ end
 //     @(posedge clk)
 //         ram_addr <= 0;
 // end
-
-// tdual_ram #(
-//     .ADDR_WIDTH_A       (   ADDR_WIDTH      ),
-//     .DATA_WIDTH_A       (   CACHE_WIDTH     ),
-//     .BYTE_WRITE_WIDTH_A (   CACHE_WIDTH     ),
-//     .ADDR_WIDTH_B       (   ADDR_WIDTH      ),
-//     .DATA_WIDTH_B       (   CACHE_WIDTH     ),
-//     .BYTE_WRITE_WIDTH_B (   CACHE_WIDTH     ),
-//     .READ_LATENCY_B     (   READ_LATENCY    )
-// ) phase_cache_inst (
-//     .clk        (   clk            ),
-//     .rst_n      (   rst_n         ),
-//     // A port.
-//     .enablea    (   rst_n            ),
-//     .wr_ena     (   ram_wr_en      ),
-//     .dina       (   {64{64'h0123456789ABCDEF}}),
-//     .addra      (   0       ),
-//     .douta      (           ),
-//     // B port.
-//     .enableb    (   rst_n   ),
-//     .wr_enb     (   1'b0            ),
-//     .dinb       (   {CACHE_WIDTH{1'b0}}),
-//     .addrb      (   ram_addr ),
-//     .doutb      (   )
-// );
 endmodule

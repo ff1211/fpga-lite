@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 //****************************************************************
 // Copyright 2022 Tianjin University 305 Lab. All Rights Reserved.
 //
@@ -12,6 +11,8 @@
 // Version  Date        Author      Changes      
 // 1.0      2022.11.14  ff          Initial version
 //****************************************************************
+
+`timescale 1ns / 1ps
 
 module phase_cache #(
     parameter ROW_SIZE = 1280,
