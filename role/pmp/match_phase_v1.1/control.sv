@@ -48,14 +48,7 @@ module control #(
     output logic                                    m_axis_tlast
 );
 
-localparam S_IDLE           = 0;
-localparam S_READ_PHASE     = 1;
-localparam S_WAIT_RESULT    = 2;
-localparam S_SEND_AXIS      = 3;
-
 logic [1:0]                             axis_switch;
-logic [3:0]                             c_state;
-logic [3:0]                             n_state;
 logic [BEAT_SIZE-1:0][DATA_WIDTH-1:0]   disparity_r;
 logic [BEAT_SIZE-1:0]                   disparity_vld;
 logic [BEAT_SIZE*DATA_WIDTH:0]          phase_beat_r;

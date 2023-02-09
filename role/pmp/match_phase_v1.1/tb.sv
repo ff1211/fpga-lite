@@ -6,7 +6,7 @@ logic clk;
 logic rst_n;
 
 parameter ROW_SIZE = 1280;
-parameter WIN_SIZE = 64;
+parameter WIN_SIZE = 32;
 parameter BEAT_SIZE = 8;
 parameter DATA_WIDTH = 16;
 parameter BUFFER_DEPTH = 512;
