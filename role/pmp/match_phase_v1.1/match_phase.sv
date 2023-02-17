@@ -153,8 +153,8 @@ for (i = 0; i < BEAT_SIZE; i++) begin
         .vld_o              (   match_vld_o         ),
         .not_found          (   not_found           ),
         .y_sub_y1           (   y_sub_y1            ), 
-        .y_sub_y0           (   y_sub_y0            ), 
-        .x0                 (   x0                  ), 
+        .y_sub_y0           (   y_sub_y0            ),
+        .x0                 (   x0                  ),
         .abs_phase1_pos_o   (   abs_phase1_pos_o    ),
         .tlast_o            (   tlast_o             )
     );
@@ -204,7 +204,7 @@ for (i = 0; i < BEAT_SIZE; i++) begin
 end
 endgenerate
 
-//1280x1080
+//1280x1024
 phase_cache #(
     .ROW_SIZE       (   ROW_SIZE        ),
     .WIN_SIZE       (   WIN_SIZE        ),

@@ -2,8 +2,6 @@
 
 module tb (
 );
-logic clk;
-logic rst_n;
 
 parameter ROW_SIZE = 1280;
 parameter WIN_SIZE = 32;
@@ -16,6 +14,16 @@ localparam BEAT_WIDTH = BEAT_SIZE * DATA_WIDTH;
 localparam CACHE_WIDTH = WIN_SIZE * DATA_WIDTH;
 localparam ADDR_WIDTH = $clog2(ROW_SIZE/WIN_SIZE);
 localparam WIN_BEAT_NUM = WIN_SIZE / BEAT_SIZE;
+
+logic                   clk;
+logic                   rst_n;
+logic [15:0]    abs1[1279:0];
+logic [15:0]    abs2[1279:0];
+
+initial begin
+    $readmemh("/home/ff/git/fpga-lite/role/pmp/match_phase_v1.1/abs1_int_f.txt", abs1);
+    $readmemh("/home/ff/git/fpga-lite/role/pmp/match_phase_v1.1/abs2_int_f.txt", abs2);
+end
 
 initial begin
     clk <= 0;
@@ -61,19 +69,19 @@ match_phase #(
     .m_axis_tlast   (   m_axis_tlast    )
 );
 
-parameter PACKAGE_LEN = 160;
+parameter BEAT_LEN = 160;
 initial begin
     s_axis_tvalid <= 0;
     s_axis_tlast <= 0;
     wait(rst_n);
-    for (int i  = 0; i <= PACKAGE_LEN; ++i) begin
+    for (int i  = 0; i <= BEAT_LEN; ++i) begin
         @(posedge clk) begin
-            if(i < PACKAGE_LEN) begin
+            if(i < BEAT_LEN) begin
                 for (int j = 0; j < BEAT_SIZE; j++) begin
-                    s_axis_tdata[j] <= 16'b00000000_00000100 * (i*BEAT_SIZE+j);
+                    s_axis_tdata[j] <= abs1[i*BEAT_SIZE+j];
                 end
                 s_axis_tvalid <= 1;
-                s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
+                s_axis_tlast <= (i == BEAT_LEN-1)? 1'b1 : 1'b0;
             end else begin
                 s_axis_tvalid <= 1'b0;
                 s_axis_tlast <= 1'b0;
@@ -81,14 +89,14 @@ initial begin
         end
     end
     #100
-    for (int i  = 0; i <= PACKAGE_LEN; ++i) begin
+    for (int i  = 0; i <= BEAT_LEN; ++i) begin
         @(posedge clk) begin
-            if(i < PACKAGE_LEN) begin
+            if(i < BEAT_LEN) begin
                 for (int j = 0; j < BEAT_SIZE; j++) begin
-                    s_axis_tdata[j] <= 16'b00000000_00000100 * (i*BEAT_SIZE+j) + 16'b00000000_00100000;
+                    s_axis_tdata[j] <= abs2[i*BEAT_SIZE+j];
                 end
                 s_axis_tvalid <= 1;
-                s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
+                s_axis_tlast <= (i == BEAT_LEN-1)? 1'b1 : 1'b0;
             end else begin
                 s_axis_tvalid <= 1'b0;
                 s_axis_tlast <= 1'b0;

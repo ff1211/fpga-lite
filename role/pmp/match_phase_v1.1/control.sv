@@ -55,7 +55,8 @@ logic [BEAT_SIZE*DATA_WIDTH:0]          phase_beat_r;
 logic [$clog2(ROW_SIZE/BEAT_SIZE)-1:0]  phase_beats_shift;
 logic [DATA_WIDTH-1:0]                  abs_phase_pos_cnt;
 logic [BEAT_SIZE-1:0][DATA_WIDTH-1:0]   abs_phase_pos;
-
+logic [1:0]                             packet_cnt;
+logic                                   ready_for_receive;
 
 // Axis switch. Load phase2 to cache and load phase1 to fifo.
 always @(posedge clk) begin
@@ -67,11 +68,24 @@ always @(posedge clk) begin
     end
 end
 
+// Count input packet.
+always @(posedge clk) begin
+    if(~rst_n)
+        packet_cnt <= 0;
+    else if((packet_cnt == 2) & (m_axis_tlast & m_axis_tvalid & m_axis_tready))
+        packet_cnt <= 0;
+    else if(s_axis_tvalid & s_axis_tready & s_axis_tlast)
+        packet_cnt <= packet_cnt + 1;
+    else
+        packet_cnt <= packet_cnt;
+end
+assign ready_for_receive = (packet_cnt != 2);
+
 assign m_cache_axis_tdata   = s_axis_tdata;
 assign m_cache_axis_tvalid  = axis_switch[0]? s_axis_tvalid : 0;
 assign m_cache_axis_tlast   = s_axis_tlast;
 
-assign s_axis_tready        = axis_switch[0]? m_cache_axis_tready : ~phase_buf_pfull[0] & rst_n;
+assign s_axis_tready        = axis_switch[0]? m_cache_axis_tready & ready_for_receive : ~phase_buf_pfull[0] & rst_n & ready_for_receive;
 
 assign phase_buf_wr_en      = axis_switch[0]? 0 : s_axis_tvalid & s_axis_tready;
 
@@ -96,7 +110,7 @@ end
 // Send disparity to axi stream.
 always @(*) begin
     m_axis_tvalid = !dis_buf_empty;
-    dis_buf_rd_en = m_axis_tvalid & m_axis_tready;
+    dis_buf_rd_en = (m_axis_tvalid & m_axis_tready)? {BEAT_SIZE{1'b1}} : 'b0;
     for (int i = 0; i < BEAT_SIZE; i++)
         m_axis_tdata[i] = dis_buf_dout[i][DATA_WIDTH-1:0];
     m_axis_tlast = dis_buf_dout[0][DATA_WIDTH];

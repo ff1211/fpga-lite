@@ -49,6 +49,9 @@ logic [39:0]                        div_tdata;
 logic signed [DATA_WIDTH-1:0]       disparity_p0;
 logic signed [DATA_WIDTH-1:0]       disparity_p1;
 
+// Disparity.
+// Fixed-point twos complement numbers with an integer width of 9 bits (8QN format).
+
 // Reg input.
 always @(posedge clk) begin
     x0_r <= x0 << 7;

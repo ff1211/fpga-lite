@@ -96,8 +96,8 @@ logic                           pre_win_m_vld;
 logic                           post_win_l_vld;
 logic        [3:0]              analyze_result;
 
-logic        [DATA_WIDTH-1:0]   c_state;
-logic        [DATA_WIDTH-1:0]   n_state;
+logic        [1:0]              c_state;
+logic        [1:0]              n_state;
 
 // phase_buf_dout[2*DATA_WIDTH]                -> tlast
 // phase_buf_dout[2*DATA_WIDTH-1:DATA_WIDTH]   -> position
