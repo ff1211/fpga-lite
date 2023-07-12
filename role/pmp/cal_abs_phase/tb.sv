@@ -18,96 +18,108 @@ module tb (
 
 `define SIM
 
-parameter PHASE_NUM = 8;
-parameter DATA_WIDTH = 16;
+parameter RATIO_3TO2    = 8;
+parameter RATIO_2TO1    = 8;
+parameter TEST_LEN      = 1280;
+parameter NOISE_CODE = 16'b10100000_00000000;
 
-logic clk;
-logic rst_n;
+logic               clk;
+logic               rst_n;
+logic               vld_i;
+logic signed [15:0] phase1_i;
+logic signed [15:0] phase2_i;
+logic signed [15:0] phase3_i;
+logic               last_i;
+logic               vld_o;
+logic signed [15:0] abs_phase_o;
+logic               last_o;
+logic [15:0]        rel_phase_1 [TEST_LEN-1:0];
+logic [15:0]        rel_phase_2 [TEST_LEN-1:0];
+logic [15:0]        rel_phase_3 [TEST_LEN-1:0];
+real                abs_phase_1 [TEST_LEN-1:0];
 
+abs_phase_3steps #(
+    .RATIO_3TO2     (   RATIO_3TO2  ),
+    .RATIO_2TO1     (   RATIO_2TO1  ),
+    .NOISE_CODE     (   NOISE_CODE  )
+) dut (
+    .clk            (   clk         ),
+    .rst_n          (   rst_n       ),
+    .vld_i          (   vld_i       ),
+    .phase1_i       (   phase1_i    ),
+    .phase2_i       (   phase2_i    ),
+    .phase3_i       (   phase3_i    ),
+    .last_i         (   last_i      ),
+    .vld_o          (   vld_o       ),
+    .abs_phase_o    (   abs_phase_o ),
+    .last_o         (   last_o      )
+);
+
+// Create clock.
 initial begin
     clk <= 0;
     rst_n <= 0;
     #200
     @(posedge clk) rst_n <= 1;
 end
+always #2 clk <= ~clk;
 
-always #5 clk <= ~clk;
-
-logic [PHASE_NUM*DATA_WIDTH-1:0]s_axis_tdata;
-logic                           s_axis_tvalid;
-logic                           s_axis_tready;
-logic                           s_axis_tlast;
-
-logic [PHASE_NUM*DATA_WIDTH-1:0]m_axis_tdata;
-logic                           m_axis_tvalid;
-logic                           m_axis_tready;
-logic                           m_axis_tlast;
-
-cal_abs_phase #(
-    .PHASE_NUM      (   PHASE_NUM   ),
-    .DATA_WIDTH     (   DATA_WIDTH  ),
-    .RATIO_3TO2     (   8       ),
-    .RATIO_2TO1     (   8       ),
-    .BUFFER_DEPTH   (   512     )
-)cal_abs_phase_inst(
-    .aclk       (   clk     ),
-    .aresetn    (   rst_n   ),
-
-    .s_axis_tdata   (   s_axis_tdata    ),
-    .s_axis_tvalid  (   s_axis_tvalid   ),
-    .s_axis_tready  (   s_axis_tready   ),
-    .s_axis_tlast   (   s_axis_tlast    ),
-    
-    .m_axis_tdata   (   m_axis_tdata    ),
-    .m_axis_tvalid  (   m_axis_tvalid   ),
-    .m_axis_tready  (   m_axis_tready   ),
-    .m_axis_tlast   (   m_axis_tlast    )
-);
-assign m_axis_tready = 1'b1;
-parameter PACKAGE_LEN = 256;
-int i = 0;
+// Read ideal relative phase file.
 initial begin
-    s_axis_tvalid <= 0;
-    s_axis_tlast <= 0;
+    $readmemb("/run/user/1000/gvfs/smb-share:server=nas305.local,share=home/project/code/matlab_sim/relative_phase/phase/rel_phase1.bin", rel_phase_1);
+    $readmemb("/run/user/1000/gvfs/smb-share:server=nas305.local,share=home/project/code/matlab_sim/relative_phase/phase/rel_phase2.bin", rel_phase_2);
+    $readmemb("/run/user/1000/gvfs/smb-share:server=nas305.local,share=home/project/code/matlab_sim/relative_phase/phase/rel_phase3.bin", rel_phase_3);
+    // $readmemb("/run/user/1000/gvfs/smb-share:server=nas305.local,share=home/project/code/matlab_sim/relative_phase/phase/abs_phase1.bin", abs_phase_1);
+end
+
+// Input test data.
+initial begin
+    vld_i <= 0;
+    last_i <= 0;
     wait(rst_n);
-    for (int i  = 0; i <= PACKAGE_LEN; ++i) begin
-        @(posedge clk) begin
-            if(i < PACKAGE_LEN) begin
-                s_axis_tvalid <= 1;
-                s_axis_tdata <= {8{16'b00011010_10011110}};
-                s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
-            end else begin
-                s_axis_tvalid <= 1'b0;
-                s_axis_tlast <= 1'b0;
-            end
-        end
-    end
     #100
-    for (int i  = 0; i <= PACKAGE_LEN; ++i) begin
+    for (int i = 0; i <= TEST_LEN; ++i) begin
         @(posedge clk) begin
-            if(i < PACKAGE_LEN) begin
-                s_axis_tvalid <= 1;
-                s_axis_tdata <= {8{16'b00001010_11101010}};
-                s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
+            if(i < TEST_LEN) begin
+                vld_i <= 1;
+                phase1_i <= rel_phase_1[i];
+                phase2_i <= rel_phase_2[i];
+                phase3_i <= rel_phase_3[i];
+                last_i <= (i == TEST_LEN - 1);
             end else begin
-                s_axis_tvalid <= 1'b0;
-                s_axis_tlast <= 1'b0;
-            end
-        end
-    end
-    #100
-    for (int i  = 0; i <= PACKAGE_LEN; ++i) begin
-        @(posedge clk) begin
-            if(i < PACKAGE_LEN) begin
-                s_axis_tvalid <= 1;
-                s_axis_tdata <= {8{16'b00010101_01100001}};
-                s_axis_tlast <= (i == PACKAGE_LEN-1)? 1'b1 : 1'b0;
-            end else begin
-                s_axis_tvalid <= 1'b0;
-                s_axis_tlast <= 1'b0;
+                vld_i <= 0;
+                last_i <= 0;
             end
         end
     end
 end
+
+// Save result to a file.
+int fd_w;
+
+initial begin
+    int j = 0;
+    forever @(posedge clk) begin
+        if(j == TEST_LEN)
+            break;
+        else if(vld_o) begin
+            abs_phase_1[j] <= fix_2_real(abs_phase_o, 8);
+            j++;
+        end
+    end
+
+    fd_w = $fopen("/run/user/1000/gvfs/smb-share:server=nas305.local,share=home/project/code/matlab_sim/relative_phase/phase/result.txt", "w");
+    for (int i = 0; i < TEST_LEN; ++i) begin
+        $fdisplay(fd_w, "%.10f", abs_phase_1[i]);
+    end
+    $fclose(fd_w);
+    $finish;
+end
+
+function real fix_2_real (input signed [15:0] x, input integer width);
+    begin
+        fix_2_real = real'(x) / real'(1 << width);
+    end
+endfunction
 
 endmodule

@@ -11,67 +11,70 @@
 // Revision history:
 // Version  Date        Author      Changes      
 // 1.0      2022.12.04  ff          Initial version
+// 1.1      2023.06.13  ff          Fix bugs and add the support of mod-rate filter 
 //****************************************************************
 
 module cal_rel_phase #(
-    parameter BEAT_SIZE = 8,
-    parameter DATA_WIDTH = 16,
+    parameter PIPE_NUM = 8,
+    parameter BTH = 10,
+    parameter NOISE_CODE = 16'b10100000_00000000,
     parameter BUFFER_DEPTH = 512
 )(
     input aclk,
     input aresetn,
 
-    input  logic [BEAT_SIZE*DATA_WIDTH-1:0] s_axis_tdata,
-    input  logic                            s_axis_tvalid,
-    output logic                            s_axis_tready,
-    input  logic                            s_axis_tlast,
+    input  logic [PIPE_NUM*16-1:0]  s_axis_tdata,
+    input  logic                    s_axis_tvalid,
+    output logic                    s_axis_tready,
+    input  logic                    s_axis_tlast,
     
-    output logic [BEAT_SIZE*DATA_WIDTH-1:0] m_axis_tdata,
-    output logic                            m_axis_tvalid,
-    input  logic                            m_axis_tready,
-    output logic                            m_axis_tlast
+    output logic [PIPE_NUM*16-1:0]  m_axis_tdata,
+    output logic                    m_axis_tvalid,
+    input  logic                    m_axis_tready,
+    output logic                    m_axis_tlast
 );
 
-localparam SHIF_STEPS = 4;
-localparam BEAT_WIDTH = BEAT_SIZE*DATA_WIDTH;
-localparam PIXEL_PART_WIDTH = BEAT_SIZE*8;
+// Local parameters definition.
+localparam DATA_WIDTH = 16;
+localparam AXIS_DWIDTH = PIPE_NUM*DATA_WIDTH;
+localparam PIXEL_PART_WIDTH = PIPE_NUM*8;
 localparam PART_NUM = DATA_WIDTH/8;
 
-logic [SHIF_STEPS-1:0]                  pixel_buf_wr_en;
-logic [SHIF_STEPS-1:0]                  pixel_buf_rd_en;
-logic [BEAT_WIDTH:0]                    pixel_buf_din;
-logic [SHIF_STEPS-1:0]                  pixel_buf_empty;
-logic [SHIF_STEPS-1:0]                  pixel_buf_pfull;
-logic [SHIF_STEPS-1:0][BEAT_WIDTH:0]    pixel_buf_dout;
+logic [3:0]                             pixel_buf_wr_en;
+logic [3:0]                             pixel_buf_rd_en;
+logic [AXIS_DWIDTH:0]                   pixel_buf_din;
+logic [3:0]                             pixel_buf_empty;
+logic [3:0]                             pixel_buf_pfull;
+logic [3:0][AXIS_DWIDTH:0]              pixel_buf_dout;
 logic                                   init_win;
 
-logic [BEAT_SIZE-1:0][7:0]              pixel1;
-logic [BEAT_SIZE-1:0][7:0]              pixel2;
-logic [BEAT_SIZE-1:0][7:0]              pixel3;
-logic [BEAT_SIZE-1:0][7:0]              pixel4;
+logic [PIPE_NUM-1:0][7:0]               pixel1;
+logic [PIPE_NUM-1:0][7:0]               pixel2;
+logic [PIPE_NUM-1:0][7:0]               pixel3;
+logic [PIPE_NUM-1:0][7:0]               pixel4;
 
 logic [DATA_WIDTH-1:0]                  buf_rd_cnt;
 logic                                   cal_vld_i;
-logic [BEAT_SIZE-1:0]                   cal_vld;
-logic [BEAT_SIZE-1:0][DATA_WIDTH-1:0]   phase;
-logic [BEAT_SIZE-1:0]                   tlast;
-logic [SHIF_STEPS-1:0]                  buf_switch;
-logic                                   cal_tlast_i;
+logic [PIPE_NUM-1:0]                    cal_vld;
+logic [PIPE_NUM-1:0][DATA_WIDTH-1:0]    phase;
+logic [PIPE_NUM-1:0]                    last;
+logic [3:0]                             buf_switch;
+logic                                   cal_last_i;
 
 logic                                   phase_buf_wr_en;
 logic                                   phase_buf_rd_en;
-logic [BEAT_WIDTH:0]                    phase_buf_din;
+logic [AXIS_DWIDTH:0]                   phase_buf_din;
 logic                                   phase_buf_pfull;
 logic                                   phase_buf_empty;
-logic [BEAT_WIDTH:0]                    phase_buf_dout;
+logic [AXIS_DWIDTH:0]                   phase_buf_dout;
 
 genvar i;
 generate;
-for (i = 0; i < SHIF_STEPS; ++i) begin
+for (i = 0; i < 4; ++i) begin
     sync_fifo #(
         .FIFO_DEPTH         (  BUFFER_DEPTH/2       ),
         .PROG_FULL_THRESH   (  BUFFER_DEPTH/2-10    ),
-        .DATA_WIDTH         (  BEAT_WIDTH+1         ),
+        .DATA_WIDTH         (  AXIS_DWIDTH+1        ),
         .READ_MODE          (  "fwft"               ),
         .READ_LATENCY       (   0                   )
     ) pixel_fifo (
@@ -123,20 +126,21 @@ always@(*) begin
         4'b1000: s_axis_tready = ~pixel_buf_pfull[3];
         default: s_axis_tready = 1'b0;
     endcase
-    for (int i = 0; i < SHIF_STEPS; ++i)
+    for (int i = 0; i < 4; ++i)
         pixel_buf_wr_en[i] = buf_switch[i] & s_axis_tvalid & s_axis_tready;
 end
 
 assign cal_vld_i = !pixel_buf_empty & ~phase_buf_pfull;
-assign cal_tlast_i = pixel_buf_dout[0][BEAT_WIDTH] & init_win;
+assign cal_last_i = pixel_buf_dout[0][AXIS_DWIDTH] & init_win;
 
 genvar j;
 generate;
-for (j = 0; j < BEAT_SIZE; j++) begin
+for (j = 0; j < PIPE_NUM; j++) begin
 // Phase and modulate rate calculation.
     logic [DATA_WIDTH-1:0] phase_o;
     rel_phase_4steps #(
-        .DATA_WIDTH (  DATA_WIDTH       )
+        .BTH        (   BTH             ),
+        .NOISE_CODE (   NOISE_CODE      )
     ) rel_phase_4steps_inst (
         .clk        (   aclk            ),
         .rst_n      (   aresetn         ),
@@ -145,9 +149,9 @@ for (j = 0; j < BEAT_SIZE; j++) begin
         .pixel2_i   (   pixel2[j]       ),
         .pixel3_i   (   pixel3[j]       ),
         .pixel4_i   (   pixel4[j]       ),
-        .tlast_i    (   cal_tlast_i     ),
+        .last_i     (   cal_last_i      ),
         .vld_o      (   cal_vld[j]      ),
-        .tlast_o    (   tlast[j]        ),
+        .last_o     (   last[j]         ),
         .phase_o    (   phase_o         )
     );
     assign phase[j] = phase_o;
@@ -173,7 +177,7 @@ end
 sync_fifo #(
     .FIFO_DEPTH         (  BUFFER_DEPTH     ),
     .PROG_FULL_THRESH   (  BUFFER_DEPTH-30  ),
-    .DATA_WIDTH         (  BEAT_WIDTH+1     ),
+    .DATA_WIDTH         (  AXIS_DWIDTH+1     ),
     .READ_MODE          (  "fwft"           ),
     .READ_LATENCY       (   0               )
 ) phase_fifo (
@@ -188,10 +192,10 @@ sync_fifo #(
     .empty  (   phase_buf_empty )
 );
 assign phase_buf_wr_en = cal_vld[0];
+assign phase_buf_din = {last[0], phase};
 assign phase_buf_rd_en = m_axis_tready & m_axis_tvalid;
-assign phase_buf_din = {tlast[0], phase};
-assign m_axis_tdata = phase_buf_dout[BEAT_WIDTH-1:0];
+assign m_axis_tdata = phase_buf_dout[AXIS_DWIDTH-1:0];
 assign m_axis_tvalid = ~phase_buf_empty;
-assign m_axis_tlast = phase_buf_dout[BEAT_WIDTH];
+assign m_axis_tlast = phase_buf_dout[AXIS_DWIDTH];
 
 endmodule

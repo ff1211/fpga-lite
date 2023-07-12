@@ -25,7 +25,8 @@ module tdual_ram #(
     parameter DATA_WIDTH_B          = 32,
     parameter READ_LATENCY_B        = 2,
     parameter BYTE_WRITE_WIDTH_B    = 32,
-    parameter WRITE_MODE_B          = "write_first"
+    parameter WRITE_MODE_B          = "write_first",
+    parameter MEMORY_PRIMITIVE      = "auto"
 ) (
     input   clk,
     input   rst_n,
@@ -55,7 +56,7 @@ xpm_memory_tdpram #(
     .MEMORY_INIT_FILE           (   "none"          ),              // String
     .MEMORY_INIT_PARAM          (   "0"             ),              // String
     .MEMORY_OPTIMIZATION        (   "true"          ),              // String
-    .MEMORY_PRIMITIVE           (   "auto"          ),              // String
+    .MEMORY_PRIMITIVE           (   MEMORY_PRIMITIVE),              // String
     .MEMORY_SIZE                (   2**ADDR_WIDTH_A * DATA_WIDTH_A ),// DECIMAL
     .MESSAGE_CONTROL            (   0   ),                          // DECIMAL
     .READ_DATA_WIDTH_A          (   DATA_WIDTH_A    ),          // DECIMAL

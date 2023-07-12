@@ -20,6 +20,7 @@ module sync_fifo #(
     parameter   PROG_EMPTY_THRESH   = 10,
     parameter   PROG_FULL_THRESH    = 10,
     parameter   DATA_WIDTH          = 32,
+    parameter   FIFO_MEMORY_TYPE    = "auto",
     parameter   READ_MODE           = "fwft",
     parameter   READ_LATENCY        = 0,
     parameter   USE_ADV_FEATURES    = "0707"
@@ -47,7 +48,7 @@ xpm_fifo_sync #(
     .CASCADE_HEIGHT         (   0           ),          // DECIMAL
     .DOUT_RESET_VALUE       (   "0"         ),          // String
     .ECC_MODE               (   "no_ecc"    ),          // String
-    .FIFO_MEMORY_TYPE       (   "auto"      ),          // String
+    .FIFO_MEMORY_TYPE       (   FIFO_MEMORY_TYPE),      // String
     .FIFO_READ_LATENCY      (   READ_LATENCY),          // DECIMAL
     .FIFO_WRITE_DEPTH       (   FIFO_DEPTH  ),          // DECIMAL
     .FULL_RESET_VALUE       (   0                   ),  // DECIMAL
